@@ -34,7 +34,7 @@ def calc_daily_returns(closes):
     import numpy as np
     return np.log(closes/closes.shift(1))[1:]
 
-def optimal_portfolio(daily_returns,N):
+def optimal_portfolio(daily_returns,N,r):
     # Frontier points
     #Packages
     import pandas as pd
@@ -45,11 +45,11 @@ def optimal_portfolio(daily_returns,N):
     import statsmodels.api as sm
     huber = sm.robust.scale.Huber()
     n = len(daily_returns.T)
-    daily_returns = np.asmatrix(daily_returns)
+    returns = np.asmatrix(daily_returns)
     mus = [10**(5.0 * t/N - 1.0) for t in range(N)]    
     #cvxopt matrices
-    S = opt.matrix(skcov.ShrunkCovariance().fit(daily_returns).covariance_)
-    returns_av, scale = huber(daily_returns)
+    S = opt.matrix(skcov.ShrunkCovariance().fit(returns).covariance_)
+    returns_av, scale = huber(returns)
     pbar = opt.matrix(returns_av)    
     # Constraint matrices
     G = -opt.matrix(np.eye(n))   # negative n x n identity matrix
@@ -61,4 +61,9 @@ def optimal_portfolio(daily_returns,N):
     ## Risk and returns
     returns = [252*blas.dot(pbar, x) for x in portfolios]
     risks = [np.sqrt(252*blas.dot(x, S*x)) for x in portfolios]
-    return  portfolios, returns, risks
+    portfolios=[np.eye(n).dot(portfolios[i])[:,0] for i in range(N)]
+    returns = np.asarray(returns)
+    risks = np.asarray(risks)
+    sharpe=np.divide((returns-r),risks) 
+    portfolios = np.asarray(portfolios)
+    return  pd.DataFrame(data=np.column_stack((returns,risks,sharpe,portfolios)),columns=(['Returns','SD','Sharpe']+list(daily_returns.columns)))
